@@ -74,13 +74,9 @@ func (p *Processor) DoWithParallel2(works []func(ctx context.Context) Result, nu
 	wg.Wait()
 }
 
-func (p *Processor) DoWithRepeat(work func(ctx context.Context) Result, rate time.Duration, times int, handleResult func(result Result)) {
+func (p *Processor) DoWithRepeat(work func(ctx context.Context), rate time.Duration, times int) {
 	if work == nil || rate < time.Millisecond {
 		return
-	}
-
-	if handleResult == nil {
-		handleResult = func(result Result) {}
 	}
 
 	ticker := time.NewTicker(rate)
@@ -89,23 +85,20 @@ func (p *Processor) DoWithRepeat(work func(ctx context.Context) Result, rate tim
 	ctx, cancel := context.WithDeadline(p.ctx, time.Now().Add(rate*time.Duration(times)))
 	defer cancel()
 
+	work(ctx)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			go handleResult(work(ctx))
+			work(ctx)
 		}
 	}
 }
 
-func (p *Processor) DoWithRepeat2(work func(ctx context.Context) Result, rate time.Duration, until time.Time, handleResult func(result Result)) {
+func (p *Processor) DoWithRepeat2(work func(ctx context.Context), rate time.Duration, until time.Time) {
 	if work == nil || rate < time.Millisecond || until.Before(time.Now().Add(time.Millisecond)) {
 		return
-	}
-
-	if handleResult == nil {
-		handleResult = func(result Result) {}
 	}
 
 	ticker := time.NewTicker(rate)
@@ -114,12 +107,13 @@ func (p *Processor) DoWithRepeat2(work func(ctx context.Context) Result, rate ti
 	ctx, cancel := context.WithDeadline(p.ctx, until)
 	defer cancel()
 
+	work(ctx)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			go handleResult(work(ctx))
+			work(ctx)
 		}
 	}
 }
